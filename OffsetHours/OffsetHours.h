@@ -34,10 +34,27 @@ protected:
 
 	} MONTH_LOOKUP;
 
+	typedef enum
+	{
+		tnYear = 0,
+		tnMonth = tnYear + 1,
+		tnDay = tnMonth + 1,
+		tnHour = tnDay + 1,
+		tnMinute = tnHour + 1,
+		tnSecond = tnMinute + 1,
+	} TOKEN_NAME;
+
 	// protected data
 protected:
 	// date formatted as a string
 	CString m_csDate;
+
+	// The date and time when the original image data was generated.
+	// For a digital still camera, this is the date and time the picture 
+	// was taken or recorded. The format is "YYYY:MM:DD HH:MM:SS" with time 
+	// shown in 24-hour format, and the date and time separated by one blank 
+	// character (hex 20).
+	CString m_csDateTaken;
 
 	// 4 digit year
 	int m_nYear;
@@ -57,7 +74,7 @@ protected:
 	// second of the minute (0..59)
 	int m_nSecond;
 
-	// boolean indictator that all is well
+	// boolean indicator that all is well
 	bool m_bOkay;
 
 	// rapid month lookup
@@ -181,7 +198,7 @@ public:
 	__declspec( property( get = GetSecond, put = SetSecond ) )
 		int Second;
 
-	// boolean indictator that all is well
+	// boolean indicator that all is well
 	inline bool GetOkay()
 	{
 		COleDateTime oDT( Year, Month, Day, Hour, Minute, Second );
@@ -189,12 +206,12 @@ public:
 		Okay = COleDateTime::DateTimeStatus::valid == eStatus;
 		return m_bOkay;
 	}
-	// boolean indictator that all is well
+	// boolean indicator that all is well
 	inline void SetOkay( bool value )
 	{
 		m_bOkay = value;
 	}
-	// boolean indictator that all is well
+	// boolean indicator that all is well
 	__declspec( property( get = GetOkay, put = SetOkay ) )
 		bool Okay;
 
@@ -225,6 +242,29 @@ public:
 	// date and time property
 	__declspec( property( get = GetDateAndTime, put = SetDateAndTime ) )
 		COleDateTime DateAndTime;
+
+	// The date and time when the original image data was generated.
+	// For a digital still camera, this is the date and time the picture 
+	// was taken or recorded. The format is "YYYY:MM:DD HH:MM:SS" with time 
+	// shown in 24-hour format, and the date and time separated by one blank 
+	// character (hex 20).
+	inline CString GetDateTaken()
+	{
+		return m_csDateTaken;
+	}
+	// The date and time when the original image data was generated.
+	// For a digital still camera, this is the date and time the picture 
+	// was taken or recorded. The format is "YYYY:MM:DD HH:MM:SS" with time 
+	// shown in 24-hour format, and the date and time separated by one blank 
+	// character (hex 20).
+	void SetDateTaken( CString csDate );
+	// The date and time when the original image data was generated.
+	// For a digital still camera, this is the date and time the picture 
+	// was taken or recorded. The format is "YYYY:MM:DD HH:MM:SS" with time 
+	// shown in 24-hour format, and the date and time separated by one blank 
+	// character (hex 20).
+	__declspec( property( get = GetDateTaken, put = SetDateTaken ) )
+		CString DateTaken;
 
 	// public methods
 public:
@@ -382,8 +422,6 @@ protected:
 public:
 	CExtension()
 	{
-		USES_CONVERSION;
-
 		// extension conversion table
 		static EXTENSION_LOOKUP ExtensionLookup[] =
 		{
@@ -420,7 +458,7 @@ public:
 };
 
 ////////////////////////////////////////////////////////////////////////////
-// used for gdiplus libraray
+// used for Gdiplus library
 ULONG_PTR m_gdiplusToken;
 
 /////////////////////////////////////////////////////////////////////////////
@@ -435,7 +473,7 @@ CExtension m_Extension;
 
 ////////////////////////////////////////////////////////////////////////////
 // the number of hours the date taken metadata will be offset
-int m_nHourOffset;
+double m_dHourOffset;
 
 ////////////////////////////////////////////////////////////////////////////
 // when true, sub-folders will be processed as well as the base folder
@@ -558,7 +596,8 @@ bool CreatePath( LPCTSTR pszPath )
 // compare two reals and determine if they are nearly equal 
 // (within the given error range)
 template <class T> static inline bool NearlyEqual
-( T value1, T value2, T error = T( 0.0001 )
+( 
+	T value1, T value2, T error = T( 0.0001 )
 )
 {
 	const T diff = fabs( value1 - value2 );

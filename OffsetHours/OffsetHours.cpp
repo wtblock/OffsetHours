@@ -14,7 +14,7 @@
 CWinApp theApp;
 
 /////////////////////////////////////////////////////////////////////////////
-// given an image pointer and an ASCII property ID, return the propery value
+// given an image pointer and an ASCII property ID, return the property value
 CString GetStringProperty( Gdiplus::Image* pImage, PROPID id )
 {
 	CString value;
@@ -72,305 +72,103 @@ int FindTextMonthIndex( vector<CString>& tokens )
 } // FindTextMonthIndex
 
 /////////////////////////////////////////////////////////////////////////////
-// given a date string that does not parse into a valid date, try to create
-// a valid date from its tokens
-bool CreateValidDate( CString csDate )
+// The date and time when the original image data was generated.
+// For a digital still camera, this is the date and time the picture 
+// was taken or recorded. The format is "YYYY:MM:DD HH:MM:SS" with time 
+// shown in 24-hour format, and the date and time separated by one blank 
+// character (hex 20).
+void CDate::SetDateTaken( CString csDate )
 {
-	bool value = false;
+	// reset the m_Date to undefined state
+	Year = -1;
+	Month = -1;
+	Day = -1;
+	Hour = 0;
+	Minute = 0;
+	Second = 0;
+	bool value = Okay;
 
-	// current date and time
-	COleDateTime oNow = COleDateTime::GetCurrentTime();
-	const int nCurrentYear = oNow.GetYear();
-	
-	// a "pm" string indicates the hour needs have 11 added to it 
-	bool bPM = false;
-
-	// an "am" string indicates the hour needs have 1 subtracted from it 
-	bool bAM = false;
-
-	// original index of AM or PM token
-	int nAmOrPm = -1;
-
-	// the month index
-	int nMonthIndex = -1;
-
-	// the value of the month
-	int nMonth = 0;
-
-	// the year index
-	int nYearIndex = -1;
-
-	// the value of the year
-	int nYear = -1;
-
-	// if the date did not parse, break the tokens up into a vector
-	// using colons, dashs, spaces, commas, periods, and underscores.
-	const CString csDelim( _T( ":- ,._" ) );
+	// parse the date into a vector of string tokens
+	const CString csDelim( _T( ": " ) );
 	int nStart = 0;
-	int nToken = 0;
 	vector<CString> tokens;
+
 	do
 	{
-		CString csToken = 
+		const CString csToken = 
 				csDate.Tokenize( csDelim, nStart ).MakeLower();
 		if ( csToken.IsEmpty() )
 		{
 			break;
 		}
 
-		// check for "am" or "pm"
-		if ( csToken == _T( "pm" ))
-		{
-			bPM = true;
-			continue;
-		}
-
-		// check for "am"
-		if ( csToken == _T( "pm" ))
-		{
-			bAM = true;
-			continue;
-		}
-
-		const bool bNumeric = GetNumeric( csToken );
-		if ( bNumeric )
-		{
-			const int nLen = csToken.GetLength();
-
-			// a four digit number has to be the year
-			if ( nLen == 4 )
-			{
-				nYearIndex = nToken;
-				nYear = _tstol( csToken );
-			}
-		} else // non-numeric
-		{
-			// non-numeric has to be the month
-			nMonth = m_Date.GetMonthOfTheYear( csToken );
-			if ( nMonth != 0 )
-			{
-				nMonthIndex = nToken;
-				csToken.Format( _T( "%02s" ), nMonth );
-			}
-		}
-
 		tokens.push_back( csToken );
-
-		nToken++;
 
 	} while ( true );
 
-	// there should be six tokens
+	// there should be six tokens in the proper format of
+	// "YYYY:MM:DD HH:MM:SS"
 	const size_t tTokens = tokens.size();
 	if ( tTokens != 6 )
 	{
-		return value;
+		return;
 	}
 
-	// these formats should parse okay
-	// case A: January 25, 1996 8:30:00
-	// case B: 25 January 1996 8:30:00
-	// case C: 8:30:00 Jan. 25, 1996
-	// case D: 8:30:00 25 Jan. 1996
-	// case E: 8:30:00 AM Jan. 25, 1996
-	// case F: 8:30:00 PM 25 Jan. 1996
-	// case G: 1/25/1996 23:30:00
-	// case H: 1/25/1996 11:30:00 PM
-	// case I: 1996/1/25 23:30:00
-	// case L: 1/25/96 23:30:00
-	// case k: 1/25/96 11:30:00 PM
+	// populate the date and time members with the values
+	// in the vector
+	TOKEN_NAME eToken = tnYear;
+	int nToken = 0;
 
-	// Years can be two digit numbers but four digit
-	// numbers can only be the year
-
-	// I have observed this not parsing
-	// "1:25:1996 23:30:00"
-
-	// reassemble the tokens in a format that we know
-	// will work
-	int nHour = _tstol( tokens[ 3 ] );
-	int nMinute = _tstol( tokens[ 4 ] );
-	int nSecond = _tstol( tokens[ 5 ] );
-	int nDay = 0;
-
-	// The only non-numberic tokens are months which
-	// (AM and PM have been removed) are in possible 
-	// month indices of 0, 1, 3 or 4
-	switch ( nMonthIndex )
+	for ( CString csToken : tokens )
 	{
-		case 0: // January 25, 1996 8:30:00
-		{
-			nDay = _tstol( tokens[ 1 ] );
-			nYear = _tstol( tokens[ 2 ] );
-			break;
-		}
-		case 1: // 25 January 1996 8:30:00
-		{
-			nDay = _tstol( tokens[ 0 ] );
-			nYear = _tstol( tokens[ 2 ] );
-			break;
-		}
-		case 3: // 8:30:00 Jan. 25, 1996
-		{
-			nHour = _tstol( tokens[ 0 ] );
-			nMinute = _tstol( tokens[ 1 ] );
-			nSecond = _tstol( tokens[ 2 ] );
-			nDay = _tstol( tokens[ 4 ] );
-			nYear = _tstol( tokens[ 5 ] );
+		int nValue = _tstol( csToken );
 
-			break;
-		}
-		case 4: // 8:30:00 25 Jan. 1996
+		switch ( eToken )
 		{
-			nHour = _tstol( tokens[ 0 ] );
-			nMinute = _tstol( tokens[ 1 ] );
-			nSecond = _tstol( tokens[ 2 ] );
-			nDay = _tstol( tokens[ 3 ] );
-			nYear = _tstol( tokens[ 5 ] );
-			break;
-		}
-		default :
-		{
-			// 
-			
-			switch ( nYearIndex )
+			case tnYear:
 			{
-				case 0: // 1996/1/25 23:30:00
-				{
-					nMonth = _tstol( tokens[ 1 ] );
-					nDay = _tstol( tokens[ 2 ] );
-					break;
-				}
-				case 2: // 11/25/1996 23:30:00
-				{
-					nMonth = _tstol( tokens[ 0 ] );
-					nDay = _tstol( tokens[ 1 ] );
-					break;
-				}
-				case 3: // 23:30:00 1996/1/25 
-				{
-					nHour = _tstol( tokens[ 0 ] );
-					nMinute = _tstol( tokens[ 1 ] );
-					nSecond = _tstol( tokens[ 2 ] );
-					nMonth = _tstol( tokens[ 1 ] );
-					nDay = _tstol( tokens[ 2 ] );
-					break;
-				}
-				case 5: // 23:30:00 1996/1/25 
-				{
-					nHour = _tstol( tokens[ 0 ] );
-					nMinute = _tstol( tokens[ 1 ] );
-					nSecond = _tstol( tokens[ 2 ] );
-					nMonth = _tstol( tokens[ 0 ] );
-					nDay = _tstol( tokens[ 1 ] );
-					break;
-				}
-				default :
-				{
-					// 11/25/96 23:30:00 
-					nMonth = _tstol( tokens[ 0 ] );
-					nDay = _tstol( tokens[ 1 ] );
-					nYear = _tstol( tokens[ 2 ] );
-					if 
-					( 
-						nMonth < 1 || nMonth > 12 ||
-						nDay < 1 || nDay > 31
-					)
-					{
-						// 96/1/25 23:30:00
-						nYear = _tstol( tokens[ 0 ] );
-						nMonth = _tstol( tokens[ 1 ] );
-						nDay = _tstol( tokens[ 2 ] );
-					} 
-				}
+				Year = nValue;
+				break;
+			}
+			case tnMonth:
+			{
+				Month = nValue;
+				break;
+			}
+			case tnDay:
+			{
+				Day = nValue;
+				break;
+			}
+			case tnHour:
+			{
+				Hour = nValue;
+				break;
+			}
+			case tnMinute:
+			{
+				Minute = nValue;
+				break;
+			}
+			case tnSecond:
+			{
+				Second = nValue;
+				break;
 			}
 		}
+
+		nToken++;
+		eToken = (TOKEN_NAME)nToken;
 	}
 
-	if ( bAM )
-	{
-		nHour--;
+	// this will be true if all of the values define a proper date and time
+	value = Okay;
 
-	} else if ( bPM )
-	{
-		nHour += 11;
-	}
-
-	if ( nYear < 100 )
-	{
-		if ( nYear > nCurrentYear )
-		{
-			nYear += 1900;
-
-		} else
-		{
-			nYear += 2000;
-		}
-	}
-
-	m_Date.Year = nYear;
-	m_Date.Month = nMonth;
-	m_Date.Day = nDay;
-	m_Date.Hour = nHour;
-	m_Date.Minute = nMinute;
-	m_Date.Second = nSecond;
-
-	value = m_Date.Okay;
-
-	return value;
-} // CreateValidDate
-
-/////////////////////////////////////////////////////////////////////////////
-// sets the time based on the given string which may not abide by the locale
-bool SetTime( CString csDate )
-{
-	bool value = false;
-
-	COleDateTime oDT;
-	COleDateTime::DateTimeStatus eStatus = COleDateTime::invalid;
-	if ( !csDate.IsEmpty() )
-	{
-		// this will fail if not formatted in the correct locale
-		oDT.ParseDateTime( csDate );
-		eStatus = oDT.GetStatus();
-
-		if ( eStatus != COleDateTime::valid )
-		{
-			// test to see if the string ends in AM or PM
-			const bool bAmPm = csDate.Right( 1 ).MakeLower() == _T( "m" );
-			CString csTime;
-			if ( bAmPm )
-			{
-				// something like 03:15:30 PM
-				csTime = csDate.Right( 11 );
-
-			} else // something like 03:15:30
-			{
-				csTime = csDate.Right( 8 );
-			}
-
-			// time alone should parse correctly and since time
-			// is all we are interested in at this point, that 
-			// is okay
-			oDT.ParseDateTime( csTime );
-			eStatus = oDT.GetStatus();
-		}
-
-		// if we have a valid status, update the time
-		if ( eStatus == COleDateTime::valid )
-		{
-			value = true;
-			m_Date.Hour = oDT.GetHour();
-			m_Date.Minute = oDT.GetMinute();
-			m_Date.Second = oDT.GetSecond();
-		}
-	}
-
-	return value;
-} // SetTime
+} // SetDateTaken
 
 /////////////////////////////////////////////////////////////////////////////
 // get the current date taken, if any, from the given filename
+// which should be in the format "YYYY:MM:DD HH:MM:SS"
 CString GetCurrentDateTaken( LPCTSTR lpszPathName )
 {
 	USES_CONVERSION;
@@ -378,6 +176,8 @@ CString GetCurrentDateTaken( LPCTSTR lpszPathName )
 	CString value;
 
 	// smart pointer to the image representing this file
+	// (smart pointer release their resources when they
+	// go out of context)
 	unique_ptr<Gdiplus::Image> pImage =
 		unique_ptr<Gdiplus::Image>
 		(
@@ -385,18 +185,25 @@ CString GetCurrentDateTaken( LPCTSTR lpszPathName )
 		);
 
 	// test the date properties stored in the given image
-	CString csOriginal =
+	const CString csOriginal =
 		GetStringProperty( pImage.get(), PropertyTagExifDTOrig );
-	CString csDigitized =
+	const CString csDigitized =
 		GetStringProperty( pImage.get(), PropertyTagExifDTDigitized );
 
-	if ( SetTime( csOriginal ) )
+	// officially the original property is the date taken in this
+	// format: "YYYY:MM:DD HH:MM:SS"
+	m_Date.DateTaken = csOriginal;
+	if ( m_Date.Okay )
 	{
 		value = csOriginal;
 
-	} else if ( SetTime( csDigitized ) )
+	} else // alternately use the date digitized
 	{
-		value = csDigitized;
+		m_Date.DateTaken = csDigitized;
+		if ( m_Date.Okay )
+		{
+			value = csDigitized;
+		}
 	}
 
 	return value;
@@ -445,7 +252,7 @@ bool Save( LPCTSTR lpszPathName, Gdiplus::Image* pImage )
 } // Save
 
 /////////////////////////////////////////////////////////////////////////////
-// crawl through the directory tree
+// crawl through the given directory tree which may include wild cards
 void RecursePath( LPCTSTR path )
 {
 	USES_CONVERSION;
@@ -457,12 +264,25 @@ void RecursePath( LPCTSTR path )
 	const CString csCorrected = GetCorrectedFolder();
 	const int nCorrected = GetCorrectedFolderLength();
 
-	CString csPathname( path );
-	csPathname.TrimRight( _T( "\\" ) );
+	// get the folder which will trim any wild card data
+	CString csPathname = GetFolder( path );
 
-	// build a string with wildcards
+	// wild cards are in use if the pathname does not equal the given path
+	const bool bWildCards = csPathname != path;
+	csPathname.TrimRight( _T( "\\" ) );
+	CString csData;
+
+	// build a string with wild-cards
 	CString strWildcard;
-	strWildcard.Format( _T( "%s\\*.*" ), path );
+	if ( bWildCards )
+	{
+		csData = GetDataName( path );
+		strWildcard.Format( _T( "%s\\%s" ), csPathname, csData );
+
+	} else // no wild cards, just a folder
+	{
+		strWildcard.Format( _T( "%s\\*.*" ), csPathname );
+	}
 
 	// start trolling for files we are interested in
 	CFileFind finder;
@@ -480,7 +300,6 @@ void RecursePath( LPCTSTR path )
 		// if it's a directory, recursively search it
 		if ( finder.IsDirectory() )
 		{
-			const CString str = finder.GetFilePath();
 
 			// if the user did not specify recursing into sub-folders
 			// then we can ignore any directories found
@@ -490,13 +309,25 @@ void RecursePath( LPCTSTR path )
 			}
 
 			// do not recurse into the corrected folder
+			const CString str = finder.GetFilePath().TrimRight( _T( "\\" ) );;
 			if ( str.Right( nCorrected ) == csCorrected )
 			{
 				continue;
 			}
 
-			// recurse into the new directory
-			RecursePath( str );
+			// if wild cards in use, build a path with the wild cards
+			if ( bWildCards )
+			{
+				CString csPath;
+				csPath.Format( _T( "%s\\%s" ), str, csData );
+
+				// recurse into the new directory with wild cards
+				RecursePath( csPath );
+
+			} else // recurse into the new directory
+			{
+				RecursePath( str );
+			}
 
 		} else // write the properties if it is a valid extension
 		{
@@ -512,6 +343,8 @@ void RecursePath( LPCTSTR path )
 				fout.WriteString( csPath + _T( "\n" ) );
 
 				// read the current date and time from the metadata
+				// which should be in this format from the image
+				// "YYYY:MM:DD HH:MM:SS"
 				const CString csDateTaken = GetCurrentDateTaken( csPath );
 
 				// if the date taken is empty, there is nothing for us
@@ -520,17 +353,18 @@ void RecursePath( LPCTSTR path )
 				if ( csDateTaken.IsEmpty() )
 				{
 					fout.WriteString( _T( ".\n") );
-					fout.WriteString( _T( "Date Taken is missing.\n" ));
+					fout.WriteString( _T( "Old Date Taken is missing.\n" ));
 					fout.WriteString( _T( ".\n" ) );
 					continue;
 				}
 
-				bool bValid = CreateValidDate( csDateTaken );
+				m_Date.DateTaken = csDateTaken;
+				bool bValid = m_Date.Okay;
 				if ( !bValid )
 				{
 					csOutput.Format
 					( 
-						_T( "Date taken is invalid: %s.\n" ), csDateTaken 
+						_T( "Old Date Taken is invalid: %s.\n" ), csDateTaken 
 					);
 					fout.WriteString( _T( ".\n" ) );
 					fout.WriteString( csOutput );
@@ -541,19 +375,19 @@ void RecursePath( LPCTSTR path )
 				{
 					csOutput.Format
 					(
-						_T( "Date taken is: %s.\n" ), csDateTaken
+						_T( "Old Date Taken is: %s.\n" ), csDateTaken
 					);
-					fout.WriteString( _T( ".\n" ) );
 					fout.WriteString( csOutput );
-					fout.WriteString( _T( ".\n" ) );
 				}
 
-				COleDateTime oDT = m_Date.GetDateAndTime();
+				// get the date and time from the m_Date member class
+				COleDateTime oDT = m_Date.DateAndTime;
 
-				// convert the offset in hours to days
-				const double dOffset = double( m_nHourOffset ) / 24;
+				// convert the offset in hours to days which is the 
+				// internal representation of the COleDateTime class
+				const double dOffset = m_dHourOffset / 24.0;
 
-				// modify the date and time with the offset
+				// modify the date and time by adding in the offset
 				oDT.m_dt += dOffset; 
 
 				// change the date
@@ -565,17 +399,17 @@ void RecursePath( LPCTSTR path )
 				{
 					csOutput.Format
 					( 
-						_T( "New Date taken is invalid: %s.\n" ), csDate
+						_T( "New Date Taken is invalid: %s.\n" ), csDate
 					);
 					fout.WriteString( _T( ".\n" ) );
 					fout.WriteString( csOutput );
-					continue;
 					fout.WriteString( _T( ".\n" ) );
 					continue;
 				}
 
-				csOutput.Format( _T( "New Date: %s\n" ), csDate );
+				csOutput.Format( _T( "New Date Taken is: %s\n" ), csDate );
 				fout.WriteString( csOutput );
+				fout.WriteString( _T( ".\n" ) );
 
 				// smart pointer to the image representing this element
 				unique_ptr<Gdiplus::Image> pImage =
@@ -585,6 +419,8 @@ void RecursePath( LPCTSTR path )
 					);
 
 				// smart pointer to the original date property item
+				// (smart pointers automatically release their resources
+				// when they go out of context)
 				unique_ptr<Gdiplus::PropertyItem> pOriginalDateItem =
 					unique_ptr<Gdiplus::PropertyItem>( new Gdiplus::PropertyItem );
 				pOriginalDateItem->id = PropertyTagExifDTOrig;
@@ -614,6 +450,7 @@ void RecursePath( LPCTSTR path )
 		}
 	}
 
+	// clean up and go home
 	finder.Close();
 
 } // RecursePath
@@ -716,16 +553,36 @@ int _tmain( int argc, TCHAR* argv[], TCHAR* envp[] )
 		fOut.WriteString( _T( ".\n" ) );
 		fOut.WriteString
 		(
-			_T( ".  pathname is the root of the tree to be scanned.\n" )
+			_T( ".  pathname is the root of the tree to be scanned, but\n" )
+			_T( ".  may contain wild cards like the following:\n" )
+			_T( ".    \"c:\\Picture\\DisneyWorldMary2 *.JPG\"\n" )
+			_T( ".  will process all files with that pattern, or\n" )
+			_T( ".    \"c:\\Picture\\DisneyWorldMary2 231.JPG\"\n" )
+			_T( ".  will process a single defined image file.\n" )
+			_T( ".  (NOTE: using wild cards will prevent recursion\n" )
+			_T( ".    into sub-folders because the folders will likely\n" )
+			_T( ".    not fall into the same pattern and therefore\n" )
+			_T( ".    sub-folders will not be found by the search).\n" )
 		);
 		fOut.WriteString
 		(
 			_T( ".  hour_offset is the number of hours to offset the date taken by.\n" )
+			_T( ".    where 12 will change AM to PM, and\n" )
+			_T( ".    where -12 will change PM to AM, and\n" )
+			_T( ".    where 24 will change to the next day, and\n" )
+			_T( ".    where -24 will change to the previous day, and\n" )
+			_T( ".    where fractional values are okay:\n" )
+			_T( ".      A minute is 0.0166666666666667.\n" )
+			_T( ".      A second is 0.0002777777777777.\n" )
 		);
 		fOut.WriteString
 		(
 			_T( ".  recurse_folders is optional true | false parameter\n" )
 			_T( ".    to include sub-folders or not (default is false).\n" )
+			_T( ".  (NOTE: using wild cards will prevent recursion\n" )
+			_T( ".    into sub-folders because the folders will likely\n" )
+			_T( ".    not fall into the same pattern and therefore\n" )
+			_T( ".    sub-folders will not be found by the search).\n" )
 		);
 		fOut.WriteString( _T( ".\n" ) );
 		return 3;
@@ -738,11 +595,35 @@ int _tmain( int argc, TCHAR* argv[], TCHAR* envp[] )
 	fOut.WriteString( csMessage );
 	fOut.WriteString( _T( ".\n" ) );
 
-	// retrieve the pathname and validate the pathname exists
-	CString csPath = argv[ 1 ];
-	if ( !::PathFileExists( csPath ) )
+	// retrieve the pathname which may include wild cards
+	CString csPathParameter = argv[ 1 ];
+
+	// trim off any wild card data
+	const CString csFolder = GetFolder( csPathParameter );
+
+	// test for current folder character (a period)
+	bool bExists = csPathParameter == _T( "." );
+
+
+	// if it is a period, add a wild card of *.* to retrieve
+	// all folders and files
+	if ( bExists )
 	{
-		csMessage.Format( _T( "Invalid pathname: %s\n" ), csPath );
+		csPathParameter = _T( ".\\*.*" );
+
+	// if it is not a period, test to see if the folder exists
+	} else 
+	{
+		if ( ::PathFileExists( csFolder ))
+		{
+			bExists = true;
+		}
+	}
+
+	// give feedback to the user
+	if ( !bExists )
+	{
+		csMessage.Format( _T( "Invalid pathname: %s\n" ), csPathParameter );
 		fOut.WriteString( _T( ".\n" ) );
 		fOut.WriteString( csMessage );
 		fOut.WriteString( _T( ".\n" ) );
@@ -750,21 +631,38 @@ int _tmain( int argc, TCHAR* argv[], TCHAR* envp[] )
 
 	} else
 	{
-		csMessage.Format( _T( "Given pathname: %s\n" ), csPath );
+		csMessage.Format( _T( "Given pathname: %s\n" ), csPathParameter );
 		fOut.WriteString( _T( ".\n" ) );
 		fOut.WriteString( csMessage );
 		fOut.WriteString( _T( ".\n" ) );
 	}
 
 	// get the number of hours to offset the date taken metadata
-	m_nHourOffset = _tstol( argv[ 2 ] );
-	if ( m_nHourOffset == 0 )
+	m_dHourOffset = _tstof( argv[ 2 ] );
+
+	if ( NearlyEqual( m_dHourOffset, 0.0 ))
 	{
 		csMessage.Format( _T( "Invalid hour offset: %s\n" ), argv[ 2 ] );
 		fOut.WriteString( _T( ".\n" ) );
 		fOut.WriteString( csMessage );
 		fOut.WriteString( _T( ".\n" ) );
 		return 5;
+	}
+
+	// default to no recursion through sub-folders
+	m_bRecurse = false;
+
+	// test for the recursion parameter
+	if ( argc == 4 )
+	{
+		CString csRecurse = argv[ 3 ];
+		csRecurse.MakeLower();
+
+		// if the text is "true" the turn on recursion
+		if ( csRecurse == _T( "true" ))
+		{
+			m_bRecurse = true;
+		}
 	}
 
 	// start up COM
@@ -776,7 +674,7 @@ int _tmain( int argc, TCHAR* argv[], TCHAR* envp[] )
 
 	// crawl through directory tree defined by the command line
 	// parameter trolling for image files
-	RecursePath( csPath );
+	RecursePath( csPathParameter );
 
 	// clean up references to GDI+
 	TerminateGdiplus();
