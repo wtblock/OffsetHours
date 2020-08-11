@@ -30,8 +30,8 @@ CString GetStringProperty( Gdiplus::Image* pImage, PROPID id )
 		unique_ptr<Gdiplus::PropertyItem> pItem =
 			unique_ptr<Gdiplus::PropertyItem>
 			(
-			(PropertyItem*)malloc( uiSize )
-				);
+				(PropertyItem*)malloc( uiSize )
+			);
 
 		// Get the property item.
 		pImage->GetPropertyItem( id, uiSize, pItem.get() );
