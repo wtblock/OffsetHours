@@ -541,16 +541,21 @@ int _tmain( int argc, TCHAR* argv[], TCHAR* envp[] )
 		fOut.WriteString( _T( ".\n" ) );
 		fOut.WriteString
 		(
-			_T( "FixDateTaken, Copyright (c) 2020, " )
+			_T( "OffsetHours, Copyright (c) 2020, " )
 			_T( "by W. T. Block.\n" )
 		);
-		fOut.WriteString( _T( ".\n" ) );
-		fOut.WriteString( _T( "Usage:\n" ) );
-		fOut.WriteString( _T( ".\n" ) );
-		fOut.WriteString( _T( ".  OffsetHours pathname hour_offset [recurse_folders]\n" ) );
-		fOut.WriteString( _T( ".\n" ) );
-		fOut.WriteString( _T( "Where:\n" ) );
-		fOut.WriteString( _T( ".\n" ) );
+
+		fOut.WriteString
+		( 
+			_T( ".\n" ) 
+			_T( "Usage:\n" )
+			_T( ".\n" )
+			_T( ".  OffsetHours pathname hour_offset [recurse_folders]\n" )
+			_T( ".\n" )
+			_T( "Where:\n" )
+			_T( ".\n" )
+		);
+
 		fOut.WriteString
 		(
 			_T( ".  pathname is the root of the tree to be scanned, but\n" )
@@ -590,10 +595,10 @@ int _tmain( int argc, TCHAR* argv[], TCHAR* envp[] )
 
 	// display the executable path
 	CString csMessage;
-	csMessage.Format( _T( "Executable pathname: %s\n" ), argv[ 0 ] );
-	fOut.WriteString( _T( ".\n" ) );
-	fOut.WriteString( csMessage );
-	fOut.WriteString( _T( ".\n" ) );
+	//csMessage.Format( _T( "Executable pathname: %s\n" ), argv[ 0 ] );
+	//fOut.WriteString( _T( ".\n" ) );
+	//fOut.WriteString( csMessage );
+	//fOut.WriteString( _T( ".\n" ) );
 
 	// retrieve the pathname which may include wild cards
 	CString csPathParameter = argv[ 1 ];
