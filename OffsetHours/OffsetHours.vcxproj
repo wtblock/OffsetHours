@@ -145,6 +145,7 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="CHelper.h" />
     <ClInclude Include="KeyedCollection.h" />
     <ClInclude Include="OffsetHours.h" />
     <ClInclude Include="Resource.h" />

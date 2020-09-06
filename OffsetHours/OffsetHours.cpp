@@ -4,6 +4,7 @@
 
 #include "stdafx.h"
 #include "OffsetHours.h"
+#include "CHelper.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -215,7 +216,7 @@ bool Save( LPCTSTR lpszPathName, Gdiplus::Image* pImage )
 {
 	USES_CONVERSION;
 
-	CString csExt = GetExtension( lpszPathName );
+	CString csExt = CHelper::GetExtension( lpszPathName );
 
 	// save and overwrite the selected image file with current page
 	int iValue =
@@ -233,7 +234,7 @@ bool Save( LPCTSTR lpszPathName, Gdiplus::Image* pImage )
 	// writing to the same file will fail, so save to a corrected folder
 	// below the image being corrected
 	const CString csCorrected = GetCorrectedFolder();
-	const CString csFolder = GetFolder( lpszPathName ) + csCorrected;
+	const CString csFolder = CHelper::GetFolder( lpszPathName ) + csCorrected;
 	if ( !::PathFileExists( csFolder ) )
 	{
 		if ( !CreatePath( csFolder ) )
@@ -243,7 +244,7 @@ bool Save( LPCTSTR lpszPathName, Gdiplus::Image* pImage )
 	}
 
 	// filename plus extension
-	const CString csData = GetDataName( lpszPathName );
+	const CString csData = CHelper::GetDataName( lpszPathName );
 	const CString csPath = csFolder + _T( "\\" ) + csData;
 
 	CLSID clsid = m_Extension.ClassID;
@@ -265,7 +266,7 @@ void RecursePath( LPCTSTR path )
 	const int nCorrected = GetCorrectedFolderLength();
 
 	// get the folder which will trim any wild card data
-	CString csPathname = GetFolder( path );
+	CString csPathname = CHelper::GetFolder( path );
 
 	// wild cards are in use if the pathname does not equal the given path
 	const bool bWildCards = csPathname != path;
@@ -276,7 +277,7 @@ void RecursePath( LPCTSTR path )
 	CString strWildcard;
 	if ( bWildCards )
 	{
-		csData = GetDataName( path );
+		csData = CHelper::GetDataName( path );
 		strWildcard.Format( _T( "%s\\%s" ), csPathname, csData );
 
 	} else // no wild cards, just a folder
@@ -309,7 +310,7 @@ void RecursePath( LPCTSTR path )
 			}
 
 			// do not recurse into the corrected folder
-			const CString str = finder.GetFilePath().TrimRight( _T( "\\" ) );;
+			const CString str = finder.GetFilePath().TrimRight( _T( "\\" ) );
 			if ( str.Right( nCorrected ) == csCorrected )
 			{
 				continue;
@@ -326,14 +327,14 @@ void RecursePath( LPCTSTR path )
 
 			} else // recurse into the new directory
 			{
-				RecursePath( str );
+				RecursePath( str + _T( "\\" ) );
 			}
 
 		} else // write the properties if it is a valid extension
 		{
 			const CString csPath = finder.GetFilePath();
-			const CString csExt = GetExtension( csPath ).MakeLower();
-			const CString csFile = GetFileName( csPath );
+			const CString csExt = CHelper::GetExtension( csPath ).MakeLower();
+			const CString csFile = CHelper::GetFileName( csPath );
 
 			if ( -1 != csValidExt.Find( csExt ) )
 			{
@@ -480,8 +481,12 @@ void CExtension::SetFileExtension( CString value )
 				return;
 			}
 
-			ImageCodecInfo* pImageCodecInfo =
-				(ImageCodecInfo*)malloc( size );
+			// a smart pointer to the image codex information
+			unique_ptr<ImageCodecInfo> pImageCodecInfo =
+				unique_ptr<ImageCodecInfo>
+				( 
+					(ImageCodecInfo*)malloc( size ) 
+				);
 			if ( pImageCodecInfo == nullptr )
 			{
 				return;
@@ -489,20 +494,17 @@ void CExtension::SetFileExtension( CString value )
 
 			// Returns an array of ImageCodecInfo objects that contain 
 			// information about the image encoders built into GDI+.
-			Gdiplus::GetImageEncoders( num, size, pImageCodecInfo );
+			Gdiplus::GetImageEncoders( num, size, pImageCodecInfo.get() );
 
 			// populate the map of mime types the first time it is 
 			// needed
 			for ( UINT nIndex = 0; nIndex < num; ++nIndex )
 			{
 				CString csKey;
-				csKey = CW2A( pImageCodecInfo[ nIndex ].MimeType );
-				CLSID classID = pImageCodecInfo[ nIndex ].Clsid;
+				csKey = CW2A( pImageCodecInfo.get()[ nIndex ].MimeType );
+				CLSID classID = pImageCodecInfo.get()[ nIndex ].Clsid;
 				m_mapMimeTypes.add( csKey, new CLSID( classID ) );
 			}
-
-			// clean up
-			free( pImageCodecInfo );
 		}
 
 		ClassID = *m_mapMimeTypes.find( MimeType );
@@ -532,11 +534,33 @@ int _tmain( int argc, TCHAR* argv[], TCHAR* envp[] )
 		return 2;
 	}
 
+	// do some common command line argument corrections
+	vector<CString> arrArgs = CHelper::CorrectedCommandLine( argc, argv );
+	size_t nArgs = arrArgs.size();
+
 	CStdioFile fOut( stdout );
+	CString csMessage;
+
+	// display the number of arguments if not 1 to help the user 
+	// understand what went wrong if there is an error in the
+	// command line syntax
+	if ( nArgs != 1 )
+	{
+		fOut.WriteString( _T( ".\n" ) );
+		csMessage.Format( _T( "The number of parameters are %d\n.\n" ), nArgs - 1 );
+		fOut.WriteString( csMessage );
+
+		// display the arguments
+		for ( int i = 1; i < nArgs; i++ )
+		{
+			csMessage.Format( _T( "Parameter %d is %s\n.\n" ), i, arrArgs[ i ] );
+			fOut.WriteString( csMessage );
+		}
+	}
 
 	// if the expected number of parameters are not found
 	// give the user some usage information
-	if ( argc != 3 && argc != 4 )
+	if ( nArgs != 3 && nArgs != 4 )
 	{
 		fOut.WriteString( _T( ".\n" ) );
 		fOut.WriteString
@@ -594,17 +618,16 @@ int _tmain( int argc, TCHAR* argv[], TCHAR* envp[] )
 	}
 
 	// display the executable path
-	CString csMessage;
-	//csMessage.Format( _T( "Executable pathname: %s\n" ), argv[ 0 ] );
+	//csMessage.Format( _T( "Executable pathname: %s\n" ), arrArgs[ 0 ] );
 	//fOut.WriteString( _T( ".\n" ) );
 	//fOut.WriteString( csMessage );
 	//fOut.WriteString( _T( ".\n" ) );
 
 	// retrieve the pathname which may include wild cards
-	CString csPathParameter = argv[ 1 ];
+	CString csPathParameter = arrArgs[ 1 ];
 
 	// trim off any wild card data
-	const CString csFolder = GetFolder( csPathParameter );
+	const CString csFolder = CHelper::GetFolder( csPathParameter );
 
 	// test for current folder character (a period)
 	bool bExists = csPathParameter == _T( "." );
@@ -643,11 +666,11 @@ int _tmain( int argc, TCHAR* argv[], TCHAR* envp[] )
 	}
 
 	// get the number of hours to offset the date taken metadata
-	m_dHourOffset = _tstof( argv[ 2 ] );
+	m_dHourOffset = _tstof( arrArgs[ 2 ] );
 
 	if ( NearlyEqual( m_dHourOffset, 0.0 ))
 	{
-		csMessage.Format( _T( "Invalid hour offset: %s\n" ), argv[ 2 ] );
+		csMessage.Format( _T( "Invalid hour offset: %s\n" ), arrArgs[ 2 ] );
 		fOut.WriteString( _T( ".\n" ) );
 		fOut.WriteString( csMessage );
 		fOut.WriteString( _T( ".\n" ) );
@@ -658,9 +681,9 @@ int _tmain( int argc, TCHAR* argv[], TCHAR* envp[] )
 	m_bRecurse = false;
 
 	// test for the recursion parameter
-	if ( argc == 4 )
+	if ( nArgs == 4 )
 	{
-		CString csRecurse = argv[ 3 ];
+		CString csRecurse = arrArgs[ 3 ];
 		csRecurse.MakeLower();
 
 		// if the text is "true" the turn on recursion
